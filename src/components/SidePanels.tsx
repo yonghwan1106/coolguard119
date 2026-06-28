@@ -221,12 +221,19 @@ export function BacktestPanel({
       </div>
       <div className="grid grid-cols-3 gap-2">
         <Stat label="분류 AUC" value={m.auc.toFixed(3)} unit="경계+ 판별" accent />
-        <Stat label="MAE" value={m.mae.toFixed(2)} unit="건/주" />
-        <Stat label="Brier" value={m.brier.toFixed(3)} unit="확률보정" />
+        <Stat label="MAE 개선" value={pct(m.improvement)} unit="↓ vs 평년" />
+        {m.precisionAtK != null ? (
+          <Stat label={`precision@${m.k}`} value={m.precisionAtK.toFixed(3)} unit="상위권 적중" accent />
+        ) : (
+          <Stat label="Brier" value={m.brier.toFixed(3)} unit="확률보정" />
+        )}
       </div>
       <div className="text-[11px] muted mt-2 leading-snug">
-        베이스라인(평년) MAE {m.baselineMae.toFixed(2)} → 모델 {m.mae.toFixed(2)} (<b className="text-[var(--cool)]">{pct(m.improvement)}↓</b>).
-        검증표본 {num(m.n)}개(생활권-주), 구간 {m.period}. <span className="mute2">희소사건 방어 위해 생활권×주 단위로 평가.</span>
+        베이스라인(평년) MAE {m.baselineMae.toFixed(2)} → 모델 {m.mae.toFixed(2)}건/주 · Brier {m.brier.toFixed(3)}.
+        {m.precisionAtK != null && (
+          <> 핵심 지표 <b>precision@{m.k}</b>=주별 상위 {m.k}개 생활권 랭킹 적중률(AUC는 분류 참고치).</>
+        )}{" "}
+        검증표본 {num(m.n)}개(생활권-주), 구간 {m.period}. <span className="mute2">희소사건 방어 위해 생활권×주로 집계.</span>
       </div>
     </div>
   );

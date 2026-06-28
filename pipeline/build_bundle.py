@@ -398,6 +398,7 @@ def backtest(regions, incidents_by_region, weeks, alert_by_week, pilot="전북")
 
     # overall 집계용
     all_pred, all_act, all_prob, all_label = [], [], [], []
+    week_rows = {}  # 주(週)별 [(regionCode, pred, act)] — precision@k(랭킹 정확도)용
     for r in regions:
         wc = region_actuals(r["code"])
         train_mean = (sum(wc.get(w, 0) for w in train_w) / max(1, len(train_w)))
@@ -411,6 +412,7 @@ def backtest(regions, incidents_by_region, weeks, alert_by_week, pilot="전북")
             tf = min(1.0, tf + {"없음": 0, "주의보": 0.12, "경보": 0.25}[alert])
             pred = train_mean * (0.7 + 1.1 * tf)
             act = wc.get(wk, 0)
+            week_rows.setdefault(wk, []).append((r["code"], pred, act))
             preds.append(pred); acts.append(act)
             probs.append(min(1.0, tf * 0.7 + normalize(train_mean, 0.5, 12) * 0.3))
             labels.append(1 if act >= max(1, hi_cut) else 0)
@@ -434,11 +436,22 @@ def backtest(regions, incidents_by_region, weeks, alert_by_week, pilot="전북")
         base = sum(all_act) / len(all_act)
         base_mae = sum(abs(base - a) for a in all_act) / len(all_act)
         brier = sum((pr - la) ** 2 for pr, la in zip(all_prob, all_label)) / len(all_label)
+        # precision@k — 주별 예측 상위 k개 생활권이 실제 상위 k와 일치하는 비율(랭킹 정확도, 핵심 의사결정 지표)
+        k = 3
+        precs = []
+        for wk, rows in week_rows.items():
+            if len(rows) < k:
+                continue
+            pred_top = set(c for c, _, _ in sorted(rows, key=lambda x: -x[1])[:k])
+            act_top = set(c for c, _, _ in sorted(rows, key=lambda x: -x[2])[:k])
+            precs.append(len(pred_top & act_top) / k)
+        prec_at_k = round(sum(precs) / len(precs), 3) if precs else 0
         metrics.insert(0, {
             "scope": f"overall:{pilot}", "scopeName": f"{pilot} 전체(생활권-주)",
             "auc": round(_auc(all_prob, all_label), 3), "mae": round(mae, 2),
             "brier": round(brier, 3), "baselineMae": round(base_mae, 2),
             "improvement": round((base_mae - mae) / base_mae, 3) if base_mae > 0 else 0,
+            "precisionAtK": prec_at_k, "k": k,
             "n": len(all_act), "period": f"{test_w[0]}~{test_w[-1]}",
         })
     return metrics
@@ -535,6 +548,12 @@ def main():
     sample_inc = incidents
     if len(sample_inc) > 3000:
         sample_inc = random.sample(sample_inc, 3000)
+    # 개인정보 보호 — 출동 좌표를 격자(약 110m, 소수 3자리)로 스냅하여 환자 단위 재식별 차단
+    sample_inc = [
+        {**it, "lat": round(it["lat"], 3), "lng": round(it["lng"], 3),
+         "nearestShelterId": None, "ageGroup": it.get("ageGroup", "unknown")}
+        for it in sample_inc
+    ]
 
     bundle = {
         "generatedAt": date.today().isoformat(),

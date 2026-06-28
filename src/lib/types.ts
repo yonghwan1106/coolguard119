@@ -134,6 +134,8 @@ export interface BacktestMetric {
   brier: number; // 확률 보정
   baselineMae: number; // 평년 베이스라인 대비
   improvement: number; // (baselineMae-mae)/baselineMae
+  precisionAtK?: number; // 주별 예측 상위 k개 생활권 랭킹 적중률(핵심 의사결정 지표)
+  k?: number;
   n: number; // 검증 표본 수(생활권-주)
   period: string; // 검증 구간
 }
