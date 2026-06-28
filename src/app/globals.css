@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+/* ── 쿨가드 119 디자인 토큰 (소방·기후 콘솔) ─────────────────── */
+:root {
+  --bg: #0b1220;          /* 콘솔 배경(딥 슬레이트) */
+  --bg-soft: #131c2e;
+  --panel: #16213a;
+  --panel-2: #1c2942;
+  --line: #28344f;
+  --fg: #e8edf6;
+  --fg-dim: #9fb0cc;
+  --fg-mute: #6b7c9c;
+  --accent: #e2483d;      /* 소방 레드 */
+  --accent-2: #ff7a4d;    /* 폭염 오렌지 */
+  --cool: #2f9e6e;        /* 쿨/관심 */
+  --info: #3a7bd5;
+
+  /* 위험등급 */
+  --g-관심: #2f9e6e;
+  --g-주의: #e8b23a;
+  --g-경계: #e87a3a;
+  --g-심각: #d4453a;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-panel: var(--panel);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --font-sans: "Pretendard Variable", Pretendard, var(--font-geist-sans), system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Pretendard Variable", Pretendard, system-ui, -apple-system, "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 스크롤바 */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── 재사용 컴포넌트 클래스 ──────────────────────────────── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.panel-soft {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.hairline {
+  border-color: var(--line);
+}
+.muted {
+  color: var(--fg-dim);
+}
+.mute2 {
+  color: var(--fg-mute);
+}
+
+/* 위험등급 칩 */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.chip-관심 { background: color-mix(in srgb, var(--g-관심) 20%, transparent); color: #7fe3b6; border: 1px solid color-mix(in srgb, var(--g-관심) 45%, transparent); }
+.chip-주의 { background: color-mix(in srgb, var(--g-주의) 20%, transparent); color: #ffd97a; border: 1px solid color-mix(in srgb, var(--g-주의) 45%, transparent); }
+.chip-경계 { background: color-mix(in srgb, var(--g-경계) 22%, transparent); color: #ffb185; border: 1px solid color-mix(in srgb, var(--g-경계) 50%, transparent); }
+.chip-심각 { background: color-mix(in srgb, var(--g-심각) 24%, transparent); color: #ff9b93; border: 1px solid color-mix(in srgb, var(--g-심각) 55%, transparent); }
+
+/* KPI 큰 숫자 */
+.kpi {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* 버튼 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.btn:hover {
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn-ghost {
+  background: transparent;
+}
+
+/* 슬라이더 */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  border: 3px solid #fff;
+  cursor: pointer;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* 지도 위 범례·툴팁 */
+.maplibregl-popup-content {
+  background: var(--panel) !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--line);
+  border-radius: 10px !important;
+  font-size: 12px;
+  padding: 10px 12px !important;
+}
+.maplibregl-popup-tip {
+  border-top-color: var(--panel) !important;
+  border-bottom-color: var(--panel) !important;
+}
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+/* 펄스 애니메이션(심각 등급 강조) */
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  70% { transform: scale(1.6); opacity: 0; }
+  100% { opacity: 0; }
+}
+.animate-fade {
+  animation: fade-in 0.4s ease both;
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
