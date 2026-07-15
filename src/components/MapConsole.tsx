@@ -250,9 +250,15 @@ export default function MapConsole(props: MapConsoleProps) {
           const f = e.features?.[0];
           if (!f || !popup) return;
           const p = f.properties!;
+          // 쉼터는 합성 표본이라 미터 정밀도 대신 ~100m 반올림 + (추정) 병기
+          const approx = Math.round(Number(p.dist) / 100) * 100;
           popup
             .setLngLat(e.lngLat)
-            .setHTML(`공백지수 <b>${Number(p.score).toFixed(2)}</b><br/>최근접쉼터 ${Number(p.dist)}m${p.blind ? " · <b style='color:#ff9b93'>공백지대</b>" : ""}`)
+            .setHTML(
+              `공백지수 <b>${Number(p.score).toFixed(2)}</b><br/>최근접쉼터 약 ${approx}m <span style="opacity:.7">(추정·합성 표본)</span>${
+                p.blind ? " · <b style='color:#ff9b93'>공백지대</b>" : ""
+              }`
+            )
             .addTo(map);
         });
       });

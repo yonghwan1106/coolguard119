@@ -2,12 +2,14 @@
 
 export function Header({
   dataSource,
+  dataSourceTitle,
   generatedAt,
   heatSource,
   airSource,
   degraded,
 }: {
-  dataSource: "real" | "sample";
+  dataSource: "real" | "sample"; // 현재 선택된 파일럿의 소스
+  dataSourceTitle?: string; // 파일럿별 소스 상세(배지 title)
   generatedAt: string;
   heatSource: string;
   airSource: string;
@@ -34,7 +36,7 @@ export function Header({
         <Badge
           tone={dataSource === "real" ? "ok" : "warn"}
           label={dataSource === "real" ? "실데이터(bigdata-119)" : "대체셋(sample)"}
-          title="dataSource"
+          title={dataSourceTitle ?? "dataSource"}
         />
         <Badge tone={degraded ? "warn" : "ok"} label={degraded ? "라이브 폴백" : "라이브 연동"} title={`기상: ${heatSource} / 대기: ${airSource}`} />
         <span className="mute2 hidden md:inline">생성 {generatedAt}</span>

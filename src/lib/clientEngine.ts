@@ -30,7 +30,7 @@ export interface AdjustedForecast {
   tempIndex: number;
   alert: HeatAlertLevel;
   components: WeeklyForecast["components"];
-  confidence: number;
+  confidence?: number | null; // (UI 미노출) — 신뢰는 백테스트로 확인
 }
 
 // alertOverride 가 null 이면 해당 주의 기본 시나리오 특보를 사용

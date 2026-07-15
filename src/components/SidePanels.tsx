@@ -103,12 +103,14 @@ export function RegionDetailPanel({
         </div>
         <div className="text-right">
           <GradeChip grade={f.grade} />
+          <div className="text-[9px] mute2 mt-0.5">위험등급 · 복합 리스크티어</div>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2 mt-3">
         <Stat label="예측 수요" value={`${f.expectedDemand}`} unit="건/주" accent />
         <Stat label="평년" value={`${f.baseline}`} unit="건/주" />
-        <Stat label="신뢰도" value={pct(f.confidence)} unit="" />
+        {/* 화장용 '신뢰도 %' 제거 — 예측 신뢰는 단일 숫자가 아니라 하단 백테스트로 확인 */}
+        <Stat label="예측 신뢰" value="백테스트↓" unit="취약도 랭킹 참조" />
       </div>
       <div className="mt-3 space-y-1.5">
         <div className="text-[11px] mute2 mb-0.5">위험등급 기여도 (설명가능)</div>
@@ -203,6 +205,13 @@ export function BacktestPanel({
 }) {
   const m = metrics.find((x) => x.scope === scope) ?? metrics[0];
   if (!m) return null;
+  const isVuln = m.metricKind === "vuln" || m.scope.startsWith("vuln:");
+  // 드롭다운 라벨: 취약도 랭킹(강함) vs 온열 주간(희소·참고) 병기
+  const optLabel = (x: BacktestMetric) => {
+    if (x.metricKind === "vuln" || x.scope.startsWith("vuln:")) return `${x.scopeName.split("(")[0].trim()} · 취약도 랭킹(검증)`;
+    if (x.scope.startsWith("overall:")) return `${x.scopeName.split("(")[0].trim()} · 온열 주간(희소·참고)`;
+    return `${x.scopeName} · 온열 주간(참고)`;
+  };
   return (
     <div className="panel p-3">
       <div className="flex items-center justify-between mb-2">
@@ -210,31 +219,50 @@ export function BacktestPanel({
         <select
           value={scope}
           onChange={(e) => onScope(e.target.value)}
-          className="bg-[var(--panel-2)] border border-[var(--line)] rounded-md text-[11px] px-1.5 py-1 outline-none"
+          className="bg-[var(--panel-2)] border border-[var(--line)] rounded-md text-[11px] px-1.5 py-1 outline-none max-w-[210px]"
         >
           {metrics.map((x) => (
             <option key={x.scope} value={x.scope}>
-              {x.scopeName}
+              {optLabel(x)}
             </option>
           ))}
         </select>
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <Stat label="분류 AUC" value={m.auc.toFixed(3)} unit="경계+ 판별" accent />
-        <Stat label="MAE 개선" value={pct(m.improvement)} unit="↓ vs 평년" />
-        {m.precisionAtK != null ? (
-          <Stat label={`precision@${m.k}`} value={m.precisionAtK.toFixed(3)} unit="상위권 적중" accent />
-        ) : (
-          <Stat label="Brier" value={m.brier.toFixed(3)} unit="확률보정" />
-        )}
-      </div>
-      <div className="text-[11px] muted mt-2 leading-snug">
-        베이스라인(평년) MAE {m.baselineMae.toFixed(2)} → 모델 {m.mae.toFixed(2)}건/주 · Brier {m.brier.toFixed(3)}.
-        {m.precisionAtK != null && (
-          <> 핵심 지표 <b>precision@{m.k}</b>=주별 상위 {m.k}개 생활권 랭킹 적중률(AUC는 분류 참고치).</>
-        )}{" "}
-        검증표본 {num(m.n)}개(생활권-주), 구간 {m.period}. <span className="mute2">희소사건 방어 위해 생활권×주로 집계.</span>
-      </div>
+      {isVuln ? (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <Stat label="분류 AUC" value={m.auc.toFixed(3)} unit="상위 1/3 취약 판별" accent />
+            <Stat label="랭킹 개선" value={pct(m.improvement)} unit="↓ vs 평균" />
+            {m.precisionAtK != null && (
+              <Stat label={`precision@${m.k}`} value={m.precisionAtK.toFixed(3)} unit="상위 취약 자치구 적중" accent />
+            )}
+          </div>
+          <div className="text-[11px] muted mt-2 leading-snug">
+            자치구 취약도 랭킹 홀드아웃(단위: 정규화 취약지수). 베이스라인 MAE {m.baselineMae.toFixed(3)} → 모델 {m.mae.toFixed(3)}
+            (건수 아님). 핵심 지표 <b>precision@{m.k}</b>=상위 {m.k}개 취약 자치구 랭킹 적중률.
+            {" "}검증표본 {num(m.n)}개 자치구, 구간 {m.period}. <span className="mute2">고령EMS per-capita로 학습 → 이듬해 실측 순위 예측.</span>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <Stat label="분류 AUC" value={m.auc.toFixed(3)} unit="상위분위 주간 판별" accent />
+            <Stat label="MAE 개선" value={pct(m.improvement)} unit="↓ vs 평년" />
+            {m.precisionAtK != null ? (
+              <Stat label={`precision@${m.k}`} value={m.precisionAtK.toFixed(3)} unit="상위권 적중" accent />
+            ) : (
+              <Stat label="Brier" value={m.brier.toFixed(3)} unit="확률보정" />
+            )}
+          </div>
+          <div className="text-[11px] muted mt-2 leading-snug">
+            베이스라인(평년) MAE {m.baselineMae.toFixed(2)} → 모델 {m.mae.toFixed(2)}건/주 · Brier {m.brier.toFixed(3)}.
+            {m.precisionAtK != null && (
+              <> 핵심 지표 <b>precision@{m.k}</b>=주별 상위 {m.k}개 생활권 랭킹 적중률(AUC는 분류 참고치).</>
+            )}{" "}
+            검증표본 {num(m.n)}개(생활권-주), 구간 {m.period}. <span className="mute2">온열은 희소사건 — 정밀 예측보다 취약지 랭킹이 실사용 무기.</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -78,7 +78,9 @@ export interface WeeklyForecast {
     exposureIndex: number; // 야외 체류 노출(유동인구 proxy, 선택피처)
     historyIndex: number; // 과거 동기 출동 경향
   };
-  confidence: number; // 0~1, 백테스팅 기반 신뢰도
+  // (UI 미노출) 과거 화장용 신뢰도 필드는 제거됨. 예측 신뢰는 단일 %가 아니라
+  // 스코프별 holdout 백테스트(취약도 랭킹=강함 / 온열 주간=희소·참고)로 확인한다.
+  confidence?: number | null;
 }
 
 // 쉼터 공백지대 격자 — 출동밀도高 × 최근접쉼터距離遠
@@ -126,25 +128,30 @@ export interface Prebriefing {
 }
 
 // 백테스팅 지표 — '예측'의 검증가능성 입증(UI 상시 노출)
+// scope 접두사로 지표 성격이 다름: vuln:*=취약도 랭킹(정규화 지수, 강함),
+// overall:*/시군코드=온열 자치구×주(희소사건, 참고).
 export interface BacktestMetric {
-  scope: string; // "overall" | regionCode
+  scope: string; // "overall:<pilot>" | "vuln:<pilot>" | 시군구 코드
   scopeName: string;
-  auc: number; // 경계+ 등급 분류 AUC
-  mae: number; // 주간 건수 평균절대오차
+  auc: number; // 분류 AUC(vuln=상위 1/3 취약 판별 / overall=상위분위 주간 판별)
+  mae: number; // 오차(vuln=정규화 취약지수 / overall=주간 건수)
   brier: number; // 확률 보정
-  baselineMae: number; // 평년 베이스라인 대비
+  baselineMae: number; // 베이스라인(평균/평년) 대비
   improvement: number; // (baselineMae-mae)/baselineMae
-  precisionAtK?: number; // 주별 예측 상위 k개 생활권 랭킹 적중률(핵심 의사결정 지표)
+  precisionAtK?: number; // 상위 k 랭킹 적중률(핵심 의사결정 지표)
   k?: number;
-  n: number; // 검증 표본 수(생활권-주)
+  n: number; // 검증 표본 수(vuln=자치구 / overall=생활권-주)
   period: string; // 검증 구간
+  metricKind?: "vuln" | "weekly"; // 캡션 단위 분기용(취약도 랭킹 vs 주간 건수)
 }
 
 // ─────────────────────────────────────────────────────────────
 // 빌드타임 정적 번들 — 파이프라인 산출물(키 없이 동작하는 핵심)
 export interface DataBundle {
   generatedAt: string;
-  dataSource: "real" | "sample"; // real=bigdata-119 실CSV, sample=공개통계 기반 대체셋
+  // real=모든 파일럿 실CSV, mixed=일부만 실데이터, sample=전부 대체셋.
+  // 배지는 meta.sourceByPilot(파일럿별)을 우선 사용하고 이 값은 폴백.
+  dataSource: "real" | "sample" | "mixed";
   pilotRegion: "전북" | "서울";
   notes: string[];
   regions: Region[];
@@ -162,6 +169,22 @@ export interface DataBundle {
     shelterCount: number;
     dateRange: string;
     sources: string[]; // 데이터 출처 표기
+    defaultWeek?: string; // 진입 시 기본 선택 주(피크 주)
+    forecastYear?: number; // 예보 기준연도(서울 실데이터=2022)
+    trainYears?: number[]; // 백테스트 학습연도
+    // 파일럿별 데이터 소스(전북 sample + 서울 real 등 혼합 상태 표기)
+    sourceByPilot?: Record<"전북" | "서울", "real" | "sample">;
+    // 전국 컨텍스트(소방청 일일상황보고) — 폭염기 구급 급증 근거 문구
+    nationalContext?: {
+      summerSurgeMultiplier: number;
+      peakDailyEms: number;
+      restDailyEms: number;
+      annualDailyEms: number;
+      validDays: number;
+      dateRange: string;
+      heatEventCount: number;
+      note: string;
+    } | null;
   };
 }
 
