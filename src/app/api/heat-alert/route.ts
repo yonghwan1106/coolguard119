@@ -68,8 +68,9 @@ async function fromDataPortal(pilot: string, serviceKey: string): Promise<LiveHe
     const ymd = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, "");
     const to = ymd(kstNow);
     const from = ymd(new Date(kstNow.getTime() - 86400000));
+    // 주의: 이 서비스는 https 게이트웨이에서 Forbidden — http만 정상(2026-07-15 실측)
     const url =
-      `https://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnMsg` +
+      `http://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnMsg` +
       `?serviceKey=${serviceKey}&pageNo=1&numOfRows=20&dataType=JSON&stnId=108&fromTmFc=${from}&toTmFc=${to}`;
     const res = await fetch(url, { next: { revalidate: 1800 } });
     if (!res.ok) return null;
