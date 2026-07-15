@@ -1,5 +1,6 @@
-// 라이브 폭염특보·예보기온 — 기상청 API허브(KMA_API_HUB_AUTHKEY).
-// 키 미발급/장애 시 degraded=true + 결정론적 폴백으로 100% 동작.
+// 라이브 폭염특보·예보기온 — 2소스 체인: ① 기상청 API허브(KMA_API_HUB_AUTHKEY)
+// ② 공공데이터포털 기상특보 조회서비스(AIRKOREA_SERVICE_KEY와 동일한 data.go.kr 키, 15000415).
+// 둘 다 실패 시 degraded=true + 결정론적 폴백으로 100% 동작.
 import seed from "@/data/regions_seed.json";
 import type { LiveHeatAlert, HeatAlertLevel } from "@/lib/types";
 
@@ -31,27 +32,61 @@ function fallback(pilot: string): LiveHeatAlert {
   return { source: "fallback", fetchedAt: new Date().toISOString(), degraded: true, regions };
 }
 
-// 기상청 API허브 실호출(키 있을 때). 파싱 실패·장애 시 폴백.
-async function fromKma(pilot: string, authKey: string): Promise<LiveHeatAlert> {
+// 특보 원문 텍스트 → 파일럿 지역 등급 매핑(두 소스 공용, 방어적 파싱)
+function alertsFromText(pilot: string, text: string, source: string): LiveHeatAlert {
+  const heatOn = /폭염|heat/i.test(text);
+  const base = fallback(pilot);
+  if (!heatOn) return { ...base, source, degraded: false };
+  // 실제 특보 텍스트에 시군이 포함되면 해당 지역 등급 상향
+  const regions = base.regions.map((r) => {
+    const rname = pilotRegions(pilot).find((x) => x.code === r.regionCode)?.name ?? "";
+    const hit = rname && text.includes(rname.replace(/시$|군$|구$/, ""));
+    return hit ? { ...r, alertLevel: "경보" as HeatAlertLevel } : r;
+  });
+  return { source, fetchedAt: new Date().toISOString(), degraded: false, regions };
+}
+
+// 소스① 기상청 API허브(typ01). 실패 시 null(다음 소스로).
+async function fromKma(pilot: string, authKey: string): Promise<LiveHeatAlert | null> {
   try {
-    // 기상특보 현황(typ01). 텍스트 응답을 방어적으로 파싱.
     const url = `https://apihub.kma.go.kr/api/typ01/url/wrn_now_data.php?fe=f&authKey=${encodeURIComponent(authKey)}`;
     const res = await fetch(url, { next: { revalidate: 1800 } });
-    if (!res.ok) throw new Error(`KMA ${res.status}`);
+    if (!res.ok) return null;
     const text = await res.text();
-    // 폭염(특보코드 H) 발효 지역 추출 — 광역 단위. 생활권 매핑은 근사.
-    const heatOn = /폭염|heat/i.test(text);
-    const base = fallback(pilot);
-    if (!heatOn) return { ...base, source: "기상청 API허브", degraded: false };
-    // 실제 특보 텍스트에 시군이 포함되면 해당 지역 등급 상향
-    const regions = base.regions.map((r) => {
-      const rname = pilotRegions(pilot).find((x) => x.code === r.regionCode)?.name ?? "";
-      const hit = rname && text.includes(rname.replace(/시$|군$|구$/, ""));
-      return hit ? { ...r, alertLevel: "경보" as HeatAlertLevel } : r;
-    });
-    return { source: "기상청 API허브", fetchedAt: new Date().toISOString(), degraded: false, regions };
+    if (/"status"\s*:\s*4\d\d/.test(text)) return null; // 200 본문 속 에러 JSON 방어
+    return alertsFromText(pilot, text, "기상청 API허브");
   } catch {
-    return fallback(pilot);
+    return null;
+  }
+}
+
+// 소스② 공공데이터포털 기상특보 조회서비스(1360000/WthrWrnInfoService, data.go.kr 15000415).
+// serviceKey는 URL 인코딩된 값을 그대로 삽입(에어코리아 라우트와 동일 관례). 실패 시 null.
+async function fromDataPortal(pilot: string, serviceKey: string): Promise<LiveHeatAlert | null> {
+  try {
+    const kstNow = new Date(Date.now() + 9 * 3600 * 1000);
+    const ymd = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, "");
+    const to = ymd(kstNow);
+    const from = ymd(new Date(kstNow.getTime() - 86400000));
+    const url =
+      `https://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnMsg` +
+      `?serviceKey=${serviceKey}&pageNo=1&numOfRows=20&dataType=JSON&stnId=108&fromTmFc=${from}&toTmFc=${to}`;
+    const res = await fetch(url, { next: { revalidate: 1800 } });
+    if (!res.ok) return null;
+    const raw = await res.text();
+    if (!raw.trim().startsWith("{")) return null; // "Forbidden" 등 비JSON 게이트웨이 응답 방어
+    const data = JSON.parse(raw);
+    const code: string = data?.response?.header?.resultCode ?? "";
+    if (code === "03") {
+      // NO_DATA = 발효 특보 없음(정상 라이브 응답)
+      return alertsFromText(pilot, "", "기상특보(공공데이터포털)");
+    }
+    if (code !== "00") return null;
+    const items = data?.response?.body?.items?.item ?? [];
+    const text = JSON.stringify(items);
+    return alertsFromText(pilot, text, "기상특보(공공데이터포털)");
+  } catch {
+    return null;
   }
 }
 
@@ -59,6 +94,10 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const pilot = searchParams.get("pilot") ?? "전북";
   const authKey = process.env.KMA_API_HUB_AUTHKEY;
-  const payload = authKey ? await fromKma(pilot, authKey) : fallback(pilot);
+  const portalKey = process.env.AIRKOREA_SERVICE_KEY; // 동일한 data.go.kr 일반 인증키
+  const payload =
+    (authKey ? await fromKma(pilot, authKey) : null) ??
+    (portalKey ? await fromDataPortal(pilot, portalKey) : null) ??
+    fallback(pilot);
   return Response.json(payload);
 }
