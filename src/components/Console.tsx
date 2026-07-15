@@ -46,6 +46,9 @@ export default function Console({ bundle }: { bundle: DataBundle }) {
     ? `전북: ${srcLabel(sourceByPilot["전북"])} · 서울: ${srcLabel(sourceByPilot["서울"])} — 현재 보기: ${pilot}(${pilotSource})`
     : "dataSource";
   const natl = bundle.meta.nationalContext;
+  // 쉼터 좌표 소스(파일럿별) — real=행안부 무더위쉼터 실좌표 전량, false=합성 표본
+  const shelterReal = bundle.meta.shelterRealByPilot?.[pilot] ?? false;
+  const shelterTotalCount = bundle.meta.shelterTotalCount;
 
   // 권역 필터
   const pilotRegions = useMemo<Region[]>(
@@ -178,6 +181,7 @@ export default function Console({ bundle }: { bundle: DataBundle }) {
             selectedRegion={selected}
             onSelectRegion={setSelected}
             layers={layers}
+            shelterReal={shelterReal}
           />
           {/* 상단 주차 칩 */}
           <div className="absolute top-3 left-1/2 -translate-x-1/2 panel px-3 py-1.5 text-[12px] font-semibold flex items-center gap-2 pointer-events-none">
@@ -193,11 +197,19 @@ export default function Console({ bundle }: { bundle: DataBundle }) {
             </div>
           ) : pilot === "전북" ? (
             <div className="absolute bottom-3 left-3 panel-soft px-2.5 py-1.5 text-[10px] mute2 max-w-[300px]">
-              ● 전북 파일럿 = 실데이터. 출동점은 온열 구급출동 <b>실좌표</b>(2017~2022 여름 15주 창, 소수 3자리 스냅). 쉼터·공백지대 최근접거리는 합성 쉼터 표본 기반 근사(추정).
+              ● 전북 파일럿 = 실데이터. 출동점은 온열 구급출동 <b>실좌표</b>(2017~2022 여름 15주 창, 소수 3자리 스냅).{" "}
+              {shelterReal ? (
+                <>쉼터·공백지대 최근접거리는 <b>실좌표(행안부 무더위쉼터)</b> 전량 기준.</>
+              ) : (
+                <>쉼터·공백지대 최근접거리는 합성 쉼터 표본 기반 근사(추정).</>
+              )}
             </div>
           ) : (
             <div className="absolute bottom-3 left-3 panel-soft px-2.5 py-1.5 text-[10px] mute2 max-w-[300px]">
-              ● 서울 파일럿 = 실데이터(검증). 원자료에 좌표가 없어 출동점은 자치구 단위 실건수의 <b>시각화용 근사배치</b>(집계 수치는 실측).
+              ● 서울 파일럿 = 실데이터(검증). 원자료에 좌표가 없어 출동점은 자치구 단위 실건수의 <b>시각화용 근사배치</b>(집계 수치는 실측).{" "}
+              {shelterReal && (
+                <>쉼터·공백지대 최근접거리는 <b>실좌표(행안부 무더위쉼터)</b> 전량 기준.</>
+              )}
             </div>
           )}
         </main>
@@ -222,7 +234,12 @@ export default function Console({ bundle }: { bundle: DataBundle }) {
             </div>
           )}
           <div className="text-[10px] mute2 px-1 leading-relaxed">
-            데이터 출처: {bundle.meta.sources[0]} 외. 개인정보 미사용(우선동=집계). 쉼터 위치는 합성 표본(실좌표 데이터 연동 예정).
+            데이터 출처: {bundle.meta.sources[0]} 외. 개인정보 미사용(우선동=집계).{" "}
+            {shelterReal ? (
+              <>쉼터 위치는 <b>실좌표(행안부 무더위쉼터{shelterTotalCount ? ` ${shelterTotalCount.toLocaleString()}개소` : ""})</b> — 지도 표시는 결정론적 표본, 최근접거리·공백지대 계산은 전량 기준.</>
+            ) : (
+              <>쉼터 위치는 합성 표본(실좌표 데이터 연동 예정).</>
+            )}
           </div>
         </aside>
       </div>

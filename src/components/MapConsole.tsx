@@ -16,6 +16,7 @@ export interface MapConsoleProps {
   selectedRegion: string | null;
   onSelectRegion: (code: string | null) => void;
   layers: { gap: boolean; shelters: boolean; incidents: boolean };
+  shelterReal?: boolean; // true=행안부 무더위쉼터 실좌표 전량 기준 거리, false=합성 표본 근사
 }
 
 const CENTER: Record<"전북" | "서울", { c: [number, number]; z: number }> = {
@@ -250,12 +251,16 @@ export default function MapConsole(props: MapConsoleProps) {
           const f = e.features?.[0];
           if (!f || !popup) return;
           const p = f.properties!;
-          // 쉼터는 합성 표본이라 미터 정밀도 대신 ~100m 반올림 + (추정) 병기
+          // 최근접쉼터거리는 ~100m 반올림. 실좌표(전량) 기준이면 '실측 근접', 합성 표본이면 '(추정)' 병기
           const approx = Math.round(Number(p.dist) / 100) * 100;
+          const real = propsRef.current.shelterReal;
+          const distNote = real
+            ? '<span style="opacity:.7">(실좌표·행안부 무더위쉼터)</span>'
+            : '<span style="opacity:.7">(추정·합성 표본)</span>';
           popup
             .setLngLat(e.lngLat)
             .setHTML(
-              `공백지수 <b>${Number(p.score).toFixed(2)}</b><br/>최근접쉼터 약 ${approx}m <span style="opacity:.7">(추정·합성 표본)</span>${
+              `공백지수 <b>${Number(p.score).toFixed(2)}</b><br/>최근접쉼터 약 ${approx}m ${distNote}${
                 p.blind ? " · <b style='color:#ff9b93'>공백지대</b>" : ""
               }`
             )

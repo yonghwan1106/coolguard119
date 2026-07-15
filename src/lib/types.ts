@@ -174,6 +174,13 @@ export interface DataBundle {
     trainYears?: number[]; // 백테스트 학습연도
     // 파일럿별 데이터 소스(전북 sample + 서울 real 등 혼합 상태 표기)
     sourceByPilot?: Record<"전북" | "서울", "real" | "sample">;
+    // 쉼터 좌표 소스: "real(행안부 무더위쉼터 전량 …)" | "synthetic" — UI 문구 조건부 전환용
+    shelterSource?: string;
+    // 파일럿별 쉼터 실좌표 여부(true=실좌표 전량, false=합성 표본)
+    shelterRealByPilot?: Record<"전북" | "서울", boolean>;
+    // 거리계산 기준(권역 귀속 전량) 쉼터 수 / 번들에 담은 표시 표본 수
+    shelterTotalCount?: number;
+    shelterDisplayCount?: number;
     // 전국 컨텍스트(소방청 일일상황보고) — 폭염기 구급 급증 근거 문구
     nationalContext?: {
       summerSurgeMultiplier: number;
