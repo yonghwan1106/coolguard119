@@ -191,7 +191,7 @@ export interface DataBundle {
 // ─────────────────────────────────────────────────────────────
 // 라이브 API 응답(graceful degrade) — 키 미발급/장애 시 degraded=true + 정적 폴백
 export interface LiveHeatAlert {
-  source: "기상청 API허브" | "fallback";
+  source: "기상청 API허브" | "기상특보(공공데이터포털)" | "fallback";
   fetchedAt: string;
   degraded: boolean;
   regions: {

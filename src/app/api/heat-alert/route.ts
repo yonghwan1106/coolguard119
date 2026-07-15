@@ -33,7 +33,7 @@ function fallback(pilot: string): LiveHeatAlert {
 }
 
 // 특보 원문 텍스트 → 파일럿 지역 등급 매핑(두 소스 공용, 방어적 파싱)
-function alertsFromText(pilot: string, text: string, source: string): LiveHeatAlert {
+function alertsFromText(pilot: string, text: string, source: LiveHeatAlert["source"]): LiveHeatAlert {
   const heatOn = /폭염|heat/i.test(text);
   const base = fallback(pilot);
   if (!heatOn) return { ...base, source, degraded: false };
